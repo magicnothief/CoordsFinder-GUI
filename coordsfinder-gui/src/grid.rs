@@ -384,8 +384,8 @@ pub fn show(ui: &mut egui::Ui, config: &mut EditableConfig, view: &mut GridView)
     }
 
     let hair = visuals.widgets.noninteractive.bg_stroke.color;
-    let guide = Stroke::new(1.0, hair.gamma_multiply(2.0));
-    let axis = Stroke::new(1.0, visuals.strong_text_color().gamma_multiply(0.45));
+    let guide = Stroke::new(1.0_f32, hair.gamma_multiply(2.0));
+    let axis = Stroke::new(1.0_f32, visuals.strong_text_color().gamma_multiply(0.45));
     for x in min_x..=max_x + 1 {
         let stroke = if x == 0 {
             axis
@@ -412,7 +412,7 @@ pub fn show(ui: &mut egui::Ui, config: &mut EditableConfig, view: &mut GridView)
         painter.line_segment([pos2(origin.x, top), pos2(origin.x + board.x, top)], stroke);
     }
 
-    let hairline = Stroke::new(1.0, hair);
+    let hairline = Stroke::new(1.0_f32, hair);
     for x in min_x..=max_x {
         for z in min_z..=max_z {
             let rect = cell_rect(x, z).shrink(0.5);
@@ -520,7 +520,7 @@ pub fn show(ui: &mut egui::Ui, config: &mut EditableConfig, view: &mut GridView)
         painter.rect_stroke(
             origin_rect.shrink(0.5),
             CornerRadius::same(2),
-            Stroke::new(2.0, visuals.strong_text_color()),
+            Stroke::new(2.0_f32, visuals.strong_text_color()),
             StrokeKind::Inside,
         );
     }
@@ -531,7 +531,7 @@ pub fn show(ui: &mut egui::Ui, config: &mut EditableConfig, view: &mut GridView)
         painter.rect_stroke(
             rect,
             CornerRadius::same(2),
-            Stroke::new(1.5, visuals.strong_text_color().gamma_multiply(0.8)),
+            Stroke::new(1.5_f32, visuals.strong_text_color().gamma_multiply(0.8)),
             StrokeKind::Outside,
         );
 

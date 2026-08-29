@@ -645,7 +645,7 @@ impl CoordsFinderApp {
                 let button = egui::Button::new(text)
                     .fill(rotation_color(rotation))
                     .stroke(if selected {
-                        egui::Stroke::new(2.0, ui.visuals().strong_text_color())
+                        egui::Stroke::new(2.0_f32, ui.visuals().strong_text_color())
                     } else {
                         egui::Stroke::NONE
                     });
