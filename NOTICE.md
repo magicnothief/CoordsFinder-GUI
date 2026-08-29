@@ -19,8 +19,12 @@ software, as upstream asks.
 
 Related upstream work:
 
+- [Laggy's video](https://www.youtube.com/watch?v=gXTN9DD_Cp0) introducing the
+  project and the technique.
 - [WebCoordsFinder](https://github.com/ALaggyDev/WebCoordsFinder) — the browser
   app for marking up a screenshot and exporting a config.
+- [The Colab notebook](https://colab.research.google.com/drive/17qih1n6VpQx_77C2spIF-JOJp17y9Jt6?usp=sharing)
+  for running a search on a free GPU.
 - [Texture Rotation Reverser](https://github.com/19MisterX98/TextureRotations) by
   19MisterX98, and the
   [Texploit Guide](https://gitea.com/ChromeCrusher/Texploit-Guide) by

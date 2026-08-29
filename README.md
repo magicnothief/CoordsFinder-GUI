@@ -149,6 +149,11 @@ CoordsFinder is by **Laggy ([@ALaggyDev](https://github.com/ALaggyDev))**, and s
 is everything that makes the search work. If you use this in a video or a
 project, credit the original — upstream asks for it, and it is deserved.
 
+- [CoordsFinder](https://github.com/ALaggyDev/CoordsFinder) — the upstream project
+- [Laggy's video on texture rotation cracking](https://www.youtube.com/watch?v=gXTN9DD_Cp0)
+- [WebCoordsFinder](https://github.com/ALaggyDev/WebCoordsFinder) — mark up a screenshot in the browser
+- [Colab notebook](https://colab.research.google.com/drive/17qih1n6VpQx_77C2spIF-JOJp17y9Jt6?usp=sharing) — run a search on a free GPU
+
 The GUI fork was developed by **Claude Opus 5** (Anthropic), directed and
 reviewed by [@zselybence](https://github.com/magicnothief).
 
