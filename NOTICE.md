@@ -35,7 +35,7 @@ Related upstream work:
 The GUI fork — everything under [`coordsfinder-gui/`](./coordsfinder-gui), the
 documentation in [`docs/`](./docs), and the packaging around them — was
 developed by **Claude Opus 5** (Anthropic), working from the direction and
-review of [@zselybence](https://github.com/magicnothief), who maintains the
+review of [@magicnothief](https://github.com/magicnothief), who maintains the
 fork and holds copyright in it.
 
 ## Third-party dependencies

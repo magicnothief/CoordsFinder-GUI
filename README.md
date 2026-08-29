@@ -43,11 +43,18 @@ Grab a build from the
 Each platform gets two executables: `coordsfinder-gui`, the window, and
 `coordsfinder`, the original command-line tool.
 
-| Platform | Asset |
-| --- | --- |
-| Windows x86-64 | `coordsfinder-gui-windows-x86_64.exe` |
-| Linux x86-64 | `coordsfinder-gui-linux-x86_64` |
-| macOS Apple silicon | `coordsfinder-gui-macos-arm64` |
+| Platform | Asset | Tested |
+| --- | --- | --- |
+| Windows x86-64 | `coordsfinder-gui-windows-x86_64.exe` | Yes |
+| Linux x86-64 | `coordsfinder-gui-linux-x86_64` | **No — builds only** |
+| macOS Apple silicon | `coordsfinder-gui-macos-arm64` | **No — builds only** |
+
+> **Only the Windows build has been run.** The Linux and macOS binaries compile
+> in CI and the test suite passes there, but nobody has actually opened the
+> window on those platforms. Treat them as untested: the GUI in particular
+> depends on system windowing, GPU drivers, and file dialogs that CI never
+> exercises. Reports — working or broken — are welcome in
+> [issues](https://github.com/magicnothief/CoordsFinder-GUI/issues).
 
 There is no installer and nothing to set up. On macOS and Linux you may need to
 mark the download executable (`chmod +x`). Unsigned builds will also prompt
@@ -155,7 +162,7 @@ project, credit the original — upstream asks for it, and it is deserved.
 - [Colab notebook](https://colab.research.google.com/drive/17qih1n6VpQx_77C2spIF-JOJp17y9Jt6?usp=sharing) — run a search on a free GPU
 
 The GUI fork was developed by **Claude Opus 5** (Anthropic), directed and
-reviewed by [@zselybence](https://github.com/magicnothief).
+reviewed by [@magicnothief](https://github.com/magicnothief).
 
 MIT, the same licence as upstream — see [LICENSE](./LICENSE). Attribution is set
 out in [NOTICE.md](./NOTICE.md), and the licences of every bundled dependency,

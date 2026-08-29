@@ -62,6 +62,14 @@ cargo test --workspace
 CI runs all three on every push. Clippy is denied on warnings, so a lint failure
 is a build failure.
 
+**Platform coverage is uneven, and worth being honest about.** The suite runs on
+Linux in CI and the release builds compile on Windows, Linux, and macOS ARM —
+but the GUI has only ever been *run* on Windows. Nothing exercises the window
+itself on Linux or macOS: not the windowing integration, not the GPU backend
+under Vulkan or Metal there, not the native file dialogs. Those builds ship
+marked as untested. If you have one of those platforms, running the app and
+reporting what happens is the single most useful contribution available.
+
 The suite covers the engine (texture algorithms against reference vectors, the
 netherrack face table, filter compilation, scan planning, CPU/GPU agreement) and
 the GUI's own logic:

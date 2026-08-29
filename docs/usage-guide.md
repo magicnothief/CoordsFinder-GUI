@@ -39,6 +39,11 @@ You can also write a config by hand or build the filter directly in this GUI,
 but reading rotations off a flat screenshot by eye is the hard part, and
 WebCoordsFinder is built for it.
 
+> **A note on platforms.** Only the Windows build has actually been run. The
+> Linux and macOS binaries compile and pass the test suite in CI, but the window
+> itself is untested there. See the
+> [README](../README.md#download).
+
 ## Step 2 — get it into the window
 
 ![The paste dialog, showing a pasted config validated as Vanilla-3 with 43 filter rows](./images/paste-config.png)
