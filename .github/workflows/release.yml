@@ -27,10 +27,15 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install GUI build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libgtk-3-dev libxkbcommon-dev libwayland-dev libgl1-mesa-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
       - name: Build
-        run: cargo build --release --locked
+        run: cargo build --release --locked --workspace
 
-      - name: Name release asset
+      - name: Name release assets
         shell: bash
         run: |
           extension=""
@@ -38,12 +43,15 @@ jobs:
             extension=".exe"
           fi
           mv "target/release/coordsfinder$extension" "coordsfinder-${{ matrix.target }}$extension"
+          mv "target/release/coordsfinder-gui$extension" "coordsfinder-gui-${{ matrix.target }}$extension"
 
-      - name: Upload release asset
+      - name: Upload release assets
         uses: actions/upload-artifact@v7
         with:
           name: coordsfinder-${{ matrix.target }}
-          path: coordsfinder-${{ matrix.target }}*
+          path: |
+            coordsfinder-${{ matrix.target }}*
+            coordsfinder-gui-${{ matrix.target }}*
           if-no-files-found: error
 
   publish:

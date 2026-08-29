@@ -3,6 +3,11 @@
 CoordsFinder searches for Minecraft coordinates using texture rotations. This
 guide explains the main parts of the program and how data moves through them.
 
+This fork is a Cargo workspace. The search engine and the command-line program
+live in the `coordsfinder` crate, described below. The desktop front-end lives in
+`coordsfinder-gui` and is described in the [GUI guide](./gui-guide.md); it is a
+consumer of this library and adds nothing to the search itself.
+
 ## How a scan works
 
 CoordsFinder does five main things:
@@ -40,6 +45,8 @@ CPU scanner        GPU scanner
 
 ## Files
 
+All paths are relative to the `coordsfinder` crate.
+
 | File | What it does |
 | --- | --- |
 | `src/main.rs` | Command-line interface, backend selection, progress, cancellation, and output |
@@ -58,7 +65,9 @@ program from those modules.
 ## Config parsing
 
 `config::load` reads the config file and returns a `ScanConfig`. It parses the
-main settings and the rows under `[filter]`.
+main settings and the rows under `[filter]`. `config::parse` does the same for
+text that is already in memory, which is how the GUI validates a document it has
+not saved yet.
 
 Filter rows have these forms:
 
@@ -372,6 +381,10 @@ user redirect match coordinates without also capturing status messages.
 
 `--validate` checks the config and creates CPU and GPU plans without running a
 scan or initializing a GPU.
+
+The GUI in `coordsfinder-gui` uses the same pieces in the same order, except that
+it runs the scan on a worker thread and turns the `sink`, `progress`, and
+`cancelled` callbacks into channel messages instead of terminal output.
 
 ## Adding another block type
 

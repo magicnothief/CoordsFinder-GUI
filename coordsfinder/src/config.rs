@@ -196,6 +196,15 @@ pub fn load(path: impl AsRef<Path>) -> Result<ScanConfig, String> {
     let path = path.as_ref();
     let contents = fs::read_to_string(path)
         .map_err(|error| format!("could not read {}: {error}", path.display()))?;
+    parse(&contents, path)
+}
+
+/// Parses and validates configuration text that was already read into memory.
+///
+/// `source_path` is only used for error messages and for the resulting
+/// [`ScanConfig::source_path`]; it is never opened.
+pub fn parse(contents: &str, source_path: impl AsRef<Path>) -> Result<ScanConfig, String> {
+    let path = source_path.as_ref();
     let mut config = ScanConfig {
         source_path: path.to_owned(),
         ..ScanConfig::default()

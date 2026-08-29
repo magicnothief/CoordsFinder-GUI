@@ -1,5 +1,10 @@
 # CoordsFinder
 
+> **GUI fork.** This branch adds **CoordsFinder GUI**, a desktop front-end for
+> the same search engine: edit a config with real controls, paint the filter on
+> a grid, and watch the scan run in the window. The command-line tool is
+> unchanged. See [GUI](#gui) and the [GUI guide](./docs/gui-guide.md).
+
 CoordsFinder is the fastest Minecraft texture rotation cracker for cracking coordinates from a screenshot!
 
 CoordsFinder is written in Rust and includes a portable multithreaded CPU backend and a [wgpu](https://wgpu.rs/) compute backend, so one build works across CPU-only systems, Vulkan, DirectX 12, and Metal.
@@ -26,6 +31,9 @@ You can run CoordsFinder directly on Google Colab with [this notebook](https://c
 
 Pre-built binaries are available for Windows, Linux, and Apple-silicon Macs. Each binary includes both the CPU and GPU backends. Download the latest version from the [releases page](https://github.com/ALaggyDev/CoordsFinder/releases/latest).
 
+Releases from this fork ship two executables per platform: `coordsfinder`, the
+command-line tool, and `coordsfinder-gui`, the window.
+
 The CPU backend has no additional runtime requirements. The optional GPU backend needs a driver with wgpu's `SHADER_INT64` feature. This is available through Vulkan, DirectX 12 with DXC, and Metal 2.3+ on supported hardware. In the default `auto` mode, CoordsFinder uses a compatible GPU when available and otherwise falls back to CPU.
 
 ### Build with Cargo
@@ -35,6 +43,19 @@ Requirements:
 - Rust 1.87 or newer
 - A supported GPU and driver if you want to use the optional GPU backend
 
+This fork is a Cargo workspace. The original crate lives in
+[`coordsfinder`](./coordsfinder) and the front-end in
+[`coordsfinder-gui`](./coordsfinder-gui); `cargo` commands at the repository
+root cover both.
+
+Building the GUI also needs the system windowing and file-dialog libraries. They
+are already present on Windows and macOS. On Debian or Ubuntu:
+
+```sh
+sudo apt-get install libgtk-3-dev libxkbcommon-dev libwayland-dev \
+  libgl1-mesa-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+```
+
 Build and test:
 
 ```sh
@@ -42,7 +63,13 @@ cargo build --release
 cargo test
 ```
 
-The executable is `target/release/coordsfinder` (`coordsfinder.exe` on Windows).
+The executables are `target/release/coordsfinder` and
+`target/release/coordsfinder-gui` (with `.exe` on Windows). To build just the
+command-line tool, and skip the GUI dependencies entirely:
+
+```sh
+cargo build --release -p coordsfinder
+```
 
 ## Run
 
@@ -70,6 +97,33 @@ coordsfinder --backend cpu --threads 8 ./example.conf
 ```
 
 Only matches are written to standard output. Device information, progress, and completion status are written to standard error, so match output can be redirected safely. Use `--output matches.txt` to also save matches to a file; without it, the program warns that matches are only on standard output. Press Ctrl+C to stop; CPU workers poll between X/Z columns and the GPU backend stops after its active tile.
+
+## GUI
+
+```sh
+cargo run --release -p coordsfinder-gui            # start empty
+cargo run --release -p coordsfinder-gui -- ./example.conf
+```
+
+The window opens, edits, and saves ordinary `.conf` files, so it interoperates
+with the command-line tool and with WebCoordsFinder exports in both directions.
+A config can also be dropped onto the window.
+
+What it adds over the CLI:
+
+- **Every setting as a control**, with the config re-validated after each edit
+  through the same parser the CLI uses. The summary reports block constraints,
+  candidate count, and work items before you commit to a scan.
+- **A filter grid you can paint.** Click cells to set texture rotations on one Y
+  layer at a time, with `side` and the six `netherrack-<face>` markers available
+  as brushes and shown as corner badges. This replaces counting offsets by hand,
+  which is the tedious part of writing a config by hand.
+- **Scanning in the window**: backend and thread pick, live candidate rate and
+  time remaining, a stop button, and a match list you can copy or save. An
+  output file works exactly like `--output`.
+
+The [GUI guide](./docs/gui-guide.md) covers the grid semantics and the panels in
+detail.
 
 ## Search config
 
