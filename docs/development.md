@@ -158,23 +158,51 @@ config format or the `RotationKind` set, the GUI needs matching work in
 Run the full test suite after a merge. `every_shipped_config_survives_a_save`
 catches format changes the GUI's writer has not kept up with.
 
+## Versioning
+
+The two crates version independently, because they are two different things
+with two different histories:
+
+| Crate | Version | Meaning |
+| --- | --- | --- |
+| `coordsfinder` | `1.2.0` | The upstream release this engine and CLI are built from. |
+| `coordsfinder-gui` | `1.0.0` | The fork's own release line. |
+
+So `coordsfinder --version` reports a number that means something to upstream,
+rather than one this fork invented. The GUI puts both in its window title —
+`CoordsFinder GUI 1.0.0 (engine 1.2.0)` — so a bug report can name both.
+
+Fork releases are tagged **`gui-vX.Y.Z`**, deliberately outside upstream's
+`vX.Y.Z` namespace. Two reasons, both mechanical rather than cosmetic:
+
+- Upstream's tags arrive in this repo through `git fetch upstream`. A fork tag
+  sharing a name with an upstream tag makes that fetch fail with
+  `! [rejected] ... (would clobber existing tag)`, and the fork cannot merge
+  upstream until someone untangles it.
+- The release workflow triggers on `gui-v*`. Fetching upstream's tags therefore
+  cannot set a release of this fork building.
+
+Bump `coordsfinder-gui`'s version for GUI changes. Bump `coordsfinder`'s only
+when merging a new upstream release, to whatever upstream called it.
+
 ## Releasing
 
 Releases are built by CI, not locally, so all three platforms come from the same
 commit.
 
-1. Bump `version` in the workspace `Cargo.toml`, and run `cargo build` so
+1. Bump `version` in `coordsfinder-gui/Cargo.toml`, and run `cargo build` so
    `Cargo.lock` follows.
 2. Commit, tag, and push:
 
    ```sh
-   git tag -a v1.3.0 -m "v1.3.0"
-   git push origin main --tags
+   git tag -a gui-v1.1.0 -m "CoordsFinder GUI v1.1.0"
+   git push origin main
+   git push origin gui-v1.1.0
    ```
 
 3. [`release.yml`](../.github/workflows/release.yml) builds Windows, Linux, and
    macOS ARM, and opens a **draft** release with both binaries for each. Check
-   the assets and publish it.
+   the assets, add notes, and publish it.
 
 The workflow can also be run manually from the Actions tab to test it without
 tagging; it only creates a release for tag pushes.

@@ -3,7 +3,10 @@ name: release
 on:
   push:
     tags:
-      - "v*"
+      # The fork's own release line. Deliberately not "v*": upstream's tags
+      # arrive in this repo through `git fetch upstream`, and must never
+      # trigger a release of the fork.
+      - "gui-v*"
   workflow_dispatch:
 
 permissions:

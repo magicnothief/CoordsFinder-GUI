@@ -6,7 +6,7 @@ a screenshot onto a grid, watch the config validate as you go, and run the scan
 in the window.
 
 [![build](https://github.com/magicnothief/CoordsFinder-GUI/actions/workflows/build.yml/badge.svg)](https://github.com/magicnothief/CoordsFinder-GUI/actions/workflows/build.yml)
-[![release](https://img.shields.io/github/v/release/magicnothief/CoordsFinder-GUI?include_prereleases&sort=semver)](https://github.com/magicnothief/CoordsFinder-GUI/releases/latest)
+[![release](https://img.shields.io/github/v/release/magicnothief/CoordsFinder-GUI?sort=date)](https://github.com/magicnothief/CoordsFinder-GUI/releases/latest)
 [![licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](./LICENSE)
 
 ![The CoordsFinder GUI window: settings on the left, a painted filter grid in the middle, and a finished scan showing one match](./docs/images/window.png)

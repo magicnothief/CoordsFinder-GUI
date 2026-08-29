@@ -3,7 +3,9 @@ members = ["coordsfinder", "coordsfinder-gui"]
 resolver = "3"
 
 [workspace.package]
-version = "1.3.0"
+# No shared `version`: the two crates version independently. `coordsfinder`
+# tracks the upstream release it is built from, so its --version stays
+# meaningful to upstream; `coordsfinder-gui` has the fork's own release line.
 edition = "2024"
 rust-version = "1.87"
 license = "MIT"
