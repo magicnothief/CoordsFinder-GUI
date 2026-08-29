@@ -24,6 +24,10 @@ the window, or pasted straight in with Ctrl+V — see
 
 ## Window layout
 
+![The full window: settings panel, filter grid, and results](./images/window.png)
+
+The same layout as a sketch, for reference:
+
 ```text
 +-- menu ------------------------------------------------------------+
 | File  Edit  Filter   example.conf  • unsaved                       |
@@ -93,6 +97,8 @@ right (east), `+Z` runs down (south), so north is up. The origin — the candida
 coordinate the offsets are relative to — is the outlined cell at `0, 0`.
 
 ### Reading a cell
+
+![Grid cells: plain four-way cells, side cells with bars, netherrack cells with red rings and letters](./images/grid-cells.png)
 
 A painted cell shows its rotation twice: as the **digit** that will be written
 to the config, and as a **colour**, matching the swatches on the Rotation
@@ -196,6 +202,8 @@ front rather than letting it surface as a validation error.
 WebCoordsFinder offers its config on the clipboard as well as as a file, so a
 config never has to be saved to disk just to get it in here.
 
+![The paste dialog validating a pasted config](./images/paste-config.png)
+
 **Press Ctrl+V anywhere in the window** — or use **File → Paste config…**
 (Ctrl+Shift+V) and paste into the box. Either way the dialog validates the text
 as it arrives and reports what it found: algorithm, filter row count,
@@ -213,6 +221,8 @@ pasting into the rows editor or into the paste dialog itself still works
 normally.
 
 ## The rows editor
+
+![The rows editor showing the filter as text](./images/rows-editor.png)
 
 The **Rows** tab is the same filter as text, one `x y z | variant [marker]` row
 per line. **Apply rows** parses the text with the settings currently in the
