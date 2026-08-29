@@ -4,13 +4,13 @@
 //! (east) and `+Z` runs down (south), so north is up, matching what a player
 //! sees on the F3 screen.
 //!
-//! Each painted cell carries the same value three ways: the rotation digit that
-//! will be written to the config, a colour, and a mark on the cell edge the
-//! texture is turned towards. The mark is what makes a filter readable as a
-//! pattern, which is how it gets compared against a screenshot.
+//! A painted cell shows its rotation as a colour and as the digit that will be
+//! written to the config. What the colour cannot say is which *face* a row is —
+//! so badges, the `side` bar, and the netherrack ring are the marks that
+//! survive when cells get small, and the digit is the first thing dropped.
 
 use egui::{
-    Align2, Color32, CornerRadius, FontId, Pos2, Rect, Sense, Shape, Stroke, StrokeKind, Vec2, pos2,
+    Align2, Color32, CornerRadius, FontId, Pos2, Rect, Sense, Stroke, StrokeKind, Vec2, pos2,
 };
 
 use coordsfinder::types::{RotationInfo, RotationKind};
@@ -29,13 +29,33 @@ pub const MIN_CELL: f32 = 10.0;
 pub const MAX_CELL: f32 = 64.0;
 /// A heavier guide line every this many cells, for counting offsets.
 const GUIDE_EVERY: i32 = 5;
-/// Below this cell size the rotation digit is dropped and only the mark is left.
-const DIGIT_MIN_CELL: f32 = 17.0;
-/// Below this cell size the rotation mark is dropped too.
-const MARK_MIN_CELL: f32 = 13.0;
+/// Below this cell size the rotation digit is dropped.
+///
+/// The digit is the first thing to go because the fill colour already carries
+/// the rotation. A badge names the face, which nothing else encodes, so it
+/// survives much further down.
+const DIGIT_MIN_CELL: f32 = 21.0;
+/// Below this cell size the badge is dropped too.
+const BADGE_MIN_CELL: f32 = 11.0;
+/// Room left for a scrollbar when fitting the board to the window.
+const SCROLLBAR_ALLOWANCE: f32 = 18.0;
+/// Smallest cell the automatic fit will choose.
+///
+/// Sitting just above [`DIGIT_MIN_CELL`], so an automatically sized board
+/// always keeps its digits. Shrinking past this to fit a small window trades
+/// away the readability the fit exists to protect, so the board is allowed to
+/// overflow and scroll instead. Zooming by hand can still go smaller, for an
+/// overview of a large filter.
+const AUTO_FIT_MIN_CELL: f32 = 22.0;
 
 /// Ink drawn on top of a painted cell.
 const ON_FILL: Color32 = Color32::from_rgb(0x0E, 0x10, 0x14);
+/// Ring around a netherrack cell: netherrack's own red.
+///
+/// Taken a little darker than the block's texture so it keeps its contrast
+/// against every rotation fill — including rotation 3, which is itself a red.
+/// Lightness, not hue, is what makes the ring read there.
+const NETHERRACK_RING: Color32 = Color32::from_rgb(0x6B, 0x2F, 0x2C);
 
 /// Background colour for each rotation value.
 pub fn rotation_color(rotation: u8) -> Color32 {
@@ -59,7 +79,9 @@ pub struct GridView {
     pub cell: f32,
     /// Draw rows from other Y layers as dimmed ghosts.
     pub show_other_layers: bool,
-    /// Keep the view fitted around the painted rows.
+    /// Keep the board fitted to the window: bounds around the painted rows,
+    /// and a cell size that puts the whole thing on screen. Zooming by hand
+    /// clears this.
     pub auto_fit: bool,
     /// Inclusive X/Z view bounds, used when `auto_fit` is off.
     pub bounds: (i32, i32, i32, i32),
@@ -148,70 +170,65 @@ fn rows_at<'a>(config: &'a EditableConfig, x: i8, z: i8, layer: i8) -> CellRows<
     }
 }
 
-/// Rotates `point` around `centre` by `quarter_turns` clockwise on screen.
-fn turn(point: Pos2, centre: Pos2, quarter_turns: u8) -> Pos2 {
-    let (dx, dy) = (point.x - centre.x, point.y - centre.y);
-    let (dx, dy) = match quarter_turns % 4 {
-        0 => (dx, dy),
-        1 => (-dy, dx),
-        2 => (-dx, -dy),
-        _ => (dy, -dx),
-    };
-    pos2(centre.x + dx, centre.y + dy)
-}
-
-/// Draws the mark that shows which way a face is turned.
+/// Draws the bar that shows which way a `side` face is mirrored.
 ///
-/// Four-way and netherrack rows get a triangle on the edge the texture points
-/// at, so a run of cells reads as a direction pattern. A `side` row is a
-/// two-state mirror rather than a turn, so it gets a bar instead — a different
-/// shape, to keep it from being read as a direction.
-fn draw_mark(painter: &egui::Painter, rect: Rect, info: &RotationInfo, ink: Color32) {
+/// A `side` row is a two-state mirror rather than a turn, and the bar is the
+/// only cue that separates the two states at a glance. Ordinary and netherrack
+/// rows get no mark: their rotation is already carried by the fill colour and
+/// the digit, and a third encoding only added clutter.
+fn draw_side_bar(painter: &egui::Painter, rect: Rect, rotation: u8, ink: Color32) {
     let size = rect.width();
-    if matches!(info.kind, RotationKind::StandardSide) {
-        let y = if info.rotation == 0 {
-            rect.top() + size * 0.17
-        } else {
-            rect.bottom() - size * 0.17
-        };
-        let bar = Rect::from_center_size(
-            pos2(rect.center().x, y),
-            Vec2::new(size * 0.46, size * 0.10),
-        );
-        painter.rect_filled(bar, CornerRadius::same(1), ink);
-        return;
-    }
-    let centre = rect.center();
-    let apex = pos2(centre.x, rect.top() + size * 0.09);
-    let left = pos2(centre.x - size * 0.17, rect.top() + size * 0.29);
-    let right = pos2(centre.x + size * 0.17, rect.top() + size * 0.29);
-    let quarter = info.rotation % 4;
-    painter.add(Shape::convex_polygon(
-        vec![
-            turn(apex, centre, quarter),
-            turn(left, centre, quarter),
-            turn(right, centre, quarter),
-        ],
-        ink,
-        Stroke::NONE,
-    ));
+    let y = if rotation == 0 {
+        rect.top() + size * 0.17
+    } else {
+        rect.bottom() - size * 0.17
+    };
+    let bar = Rect::from_center_size(
+        pos2(rect.center().x, y),
+        Vec2::new(size * 0.46, (size * 0.10).max(1.5)),
+    );
+    painter.rect_filled(bar, CornerRadius::same(1), ink);
 }
 
-/// Where the rotation digit sits, nudged away from the mark so the two do not
-/// crowd each other in a small cell.
-fn digit_position(rect: Rect, info: &RotationInfo) -> Pos2 {
+/// Where the rotation digit sits, nudged clear of the `side` bar when the cell
+/// has one. `side_rotation` is the bar's value, or `None` when there is no bar.
+fn digit_position(rect: Rect, side_rotation: Option<u8>) -> Pos2 {
     let centre = rect.center();
-    let away = centre + Vec2::new(0.0, rect.height() * 0.09);
-    match info.kind {
-        // The bar sits at the top for 0 and the bottom for 1.
-        RotationKind::StandardSide if info.rotation != 0 => {
-            centre - Vec2::new(0.0, rect.height() * 0.09)
-        }
-        RotationKind::StandardSide => away,
-        // `away` points down, which is opposite the mark at rotation 0, so
-        // turning it with the mark keeps them on opposite sides.
-        _ => turn(away, centre, info.rotation % 4),
+    let nudge = Vec2::new(0.0, rect.height() * 0.09);
+    match side_rotation {
+        // The bar sits at the top for 0 and at the bottom for 1.
+        Some(0) => centre + nudge,
+        Some(_) => centre - nudge,
+        None => centre,
     }
+}
+
+/// Cell size that fits the board into `available`, never below readable.
+///
+/// The result is clamped up to [`AUTO_FIT_MIN_CELL`], so a window too small for
+/// the whole board gets a scrollable board of readable cells rather than a
+/// complete but illegible one.
+///
+/// A scrollbar's width is always subtracted. Without it the board oscillates:
+/// fitting exactly hides the scrollbar, which frees width, which grows the
+/// cells, which brings the scrollbar back. Sizes are floored to whole points
+/// for the same reason — so a fraction of a point cannot flip the fit.
+fn fit_cell(available: Vec2, columns: i32, rows: i32) -> Option<f32> {
+    if !available.x.is_finite() || !available.y.is_finite() {
+        return None;
+    }
+    let room = available - Vec2::splat(GUTTER + SCROLLBAR_ALLOWANCE);
+    if room.x <= 0.0 || room.y <= 0.0 {
+        return None;
+    }
+    let by_width = room.x / columns as f32;
+    let by_height = room.y / rows as f32;
+    Some(
+        by_width
+            .min(by_height)
+            .floor()
+            .clamp(AUTO_FIT_MIN_CELL, MAX_CELL),
+    )
 }
 
 /// Applies ctrl+scroll zoom, keeping the cell under the pointer in place.
@@ -225,6 +242,9 @@ fn apply_zoom(ui: &egui::Ui, view: &mut GridView) -> f32 {
         let zoom = ui.input(|input| input.zoom_delta());
         if (zoom - 1.0).abs() > f32::EPSILON {
             view.cell = (view.cell * zoom).clamp(MIN_CELL, MAX_CELL);
+            // Zooming by hand is a request for a particular size, so the board
+            // stops resizing itself to the window.
+            view.auto_fit = false;
         }
     }
     previous
@@ -233,6 +253,7 @@ fn apply_zoom(ui: &egui::Ui, view: &mut GridView) -> f32 {
 /// Draws the grid and applies any painting the user did. Returns whether the
 /// filter changed.
 pub fn show(ui: &mut egui::Ui, config: &mut EditableConfig, view: &mut GridView) -> bool {
+    let available = ui.available_size();
     let previous_cell = apply_zoom(ui, view);
     if view.auto_fit {
         view.fit(config);
@@ -240,6 +261,13 @@ pub fn show(ui: &mut egui::Ui, config: &mut EditableConfig, view: &mut GridView)
     let (min_x, max_x, min_z, max_z) = view.bounds;
     let columns = (max_x - min_x + 1).max(1);
     let rows = (max_z - min_z + 1).max(1);
+    // Fitting the zoom as well as the bounds is what keeps a filter legible in
+    // a small window, where a fixed cell size would push most of it off-screen.
+    if view.auto_fit
+        && let Some(cell) = fit_cell(available, columns, rows)
+    {
+        view.cell = cell;
+    }
     let board = Vec2::new(columns as f32 * view.cell, rows as f32 * view.cell);
     let (response, painter) =
         ui.allocate_painter(board + Vec2::splat(GUTTER), Sense::click_and_drag());
@@ -306,8 +334,11 @@ pub fn show(ui: &mut egui::Ui, config: &mut EditableConfig, view: &mut GridView)
     }
 
     let label_font = FontId::proportional((view.cell * 0.34).clamp(9.0, 12.0));
-    let digit_font = FontId::proportional((view.cell * 0.44).clamp(11.0, 19.0));
-    let badge_font = FontId::proportional((view.cell * 0.28).clamp(8.0, 11.0));
+    // Without a direction mark competing for the cell, the digit can take the
+    // space it needs to stay readable.
+    let digit_font = FontId::proportional((view.cell * 0.52).clamp(11.0, 24.0));
+    let badge_font = FontId::proportional((view.cell * 0.30).clamp(8.0, 12.0));
+    let big_badge_font = FontId::proportional((view.cell * 0.62).clamp(8.0, 15.0));
     // Thin out gutter labels when cells are too small to hold them.
     let label_step = if view.cell >= 26.0 {
         1
@@ -408,44 +439,68 @@ pub fn show(ui: &mut egui::Ui, config: &mut EditableConfig, view: &mut GridView)
                 CornerRadius::same(2),
                 rotation_color(primary.rotation),
             );
-            // Netherrack uses a different model selector from ordinary blocks,
-            // and the two can never share a block; an inner edge makes that
-            // family visible without reading badges.
+            // Netherrack uses a different model selector from ordinary blocks
+            // and can never share one, so the family gets a ring in netherrack's
+            // own red. It is the netherrack cue that still reads when a cell is
+            // only a few points across.
             if matches!(primary.kind, RotationKind::Netherrack(_)) {
+                let width = (view.cell * 0.10).clamp(1.5, 3.5);
                 painter.rect_stroke(
-                    rect.shrink(1.5),
-                    CornerRadius::same(1),
-                    Stroke::new(1.5, ON_FILL.gamma_multiply(0.55)),
+                    rect,
+                    CornerRadius::same(2),
+                    Stroke::new(width, NETHERRACK_RING),
                     StrokeKind::Inside,
                 );
             }
-            if view.cell >= MARK_MIN_CELL {
-                draw_mark(&painter, rect, primary, ON_FILL.gamma_multiply(0.75));
+            // Any side row on the block, not just the one driving the fill: a
+            // stone block commonly carries both its top face and a side face,
+            // and the bar is now the only thing that marks the side row.
+            let side = cell
+                .here
+                .iter()
+                .find(|info| matches!(info.kind, RotationKind::StandardSide));
+            if let Some(side) = side {
+                draw_side_bar(&painter, rect, side.rotation, ON_FILL.gamma_multiply(0.8));
             }
-            if view.cell >= DIGIT_MIN_CELL {
+
+            let digit = view.cell >= DIGIT_MIN_CELL;
+            if digit {
                 painter.text(
-                    digit_position(rect, primary),
+                    digit_position(rect, side.map(|info| info.rotation)),
                     Align2::CENTER_CENTER,
                     primary.rotation.to_string(),
                     digit_font.clone(),
                     ON_FILL,
                 );
-                // Every badge, not a "+n" count: which faces a block carries is
-                // the thing worth seeing at a glance.
+            }
+            if view.cell >= BADGE_MIN_CELL {
+                // Every badge when there is room, because which faces a block
+                // carries is worth seeing at a glance. When the digit has been
+                // dropped the badge moves to the middle and grows into the
+                // space, rather than staying a corner mark nobody can read.
                 let badges: String = cell
                     .here
                     .iter()
                     .map(|info| brush_of(info).badge())
                     .collect::<Vec<_>>()
-                    .join(" ");
+                    .concat();
                 if !badges.is_empty() {
-                    painter.text(
-                        rect.right_bottom() + Vec2::new(-2.0, -1.0),
-                        Align2::RIGHT_BOTTOM,
-                        badges,
-                        badge_font.clone(),
-                        ON_FILL.gamma_multiply(0.8),
-                    );
+                    let (position, align, font, ink) = if digit {
+                        (
+                            rect.right_bottom() + Vec2::new(-2.0, -1.0),
+                            Align2::RIGHT_BOTTOM,
+                            badge_font.clone(),
+                            ON_FILL.gamma_multiply(0.8),
+                        )
+                    } else {
+                        (
+                            rect.center(),
+                            Align2::CENTER_CENTER,
+                            big_badge_font.clone(),
+                            ON_FILL,
+                        )
+                    };
+                    painter.text(position, align, badges, font, ink);
                 }
             }
             if view.show_other_layers && cell.elsewhere > 0 {
@@ -535,14 +590,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn quarter_turns_go_clockwise_on_screen() {
-        let centre = pos2(0.0, 0.0);
-        let up = pos2(0.0, -1.0);
-        // Screen Y grows downward, so a clockwise turn takes up to the right.
-        assert_eq!(turn(up, centre, 1), pos2(1.0, 0.0));
-        assert_eq!(turn(up, centre, 2), pos2(0.0, 1.0));
-        assert_eq!(turn(up, centre, 3), pos2(-1.0, 0.0));
-        assert_eq!(turn(up, centre, 4), up);
+    fn fitting_uses_the_tighter_axis_and_respects_the_zoom_limits() {
+        // Room for 50-point cells across but only 30-point cells down; the
+        // tighter axis has to win, or the board would overflow the window.
+        let room_for = |cell: f32, count: i32| cell * count as f32 + GUTTER + SCROLLBAR_ALLOWANCE;
+        let available = Vec2::new(room_for(50.0, 10), room_for(30.0, 20));
+        assert_eq!(fit_cell(available, 10, 20), Some(30.0));
+
+        // A window too small for the whole board keeps cells readable and lets
+        // the board overflow, rather than shrinking it into illegibility.
+        assert_eq!(
+            fit_cell(Vec2::new(200.0, 200.0), 80, 80),
+            Some(AUTO_FIT_MIN_CELL)
+        );
+        // And a tiny filter in a large window stops at the maximum.
+        assert_eq!(fit_cell(Vec2::new(4000.0, 4000.0), 2, 2), Some(MAX_CELL));
+
+        // No room at all is not a fit.
+        assert_eq!(fit_cell(Vec2::new(10.0, 400.0), 10, 10), None);
+        assert_eq!(fit_cell(Vec2::new(f32::INFINITY, 400.0), 10, 10), None);
     }
 
     #[test]

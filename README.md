@@ -119,9 +119,10 @@ What it adds over the CLI:
   be dropped onto the window, and File → Copy config sends one back out.
 - **A filter grid you can paint.** Click cells to set texture rotations on one Y
   layer at a time, with `side` and the six `netherrack-<face>` markers available
-  as brushes. Each cell shows its rotation as a digit, a colour, and a mark on
-  the edge the texture is turned towards, so a filter can be compared against a
-  screenshot at a glance instead of by counting offsets.
+  as brushes. Each cell shows its rotation as a digit and a colour, and its
+  family by its own cue: nothing for a plain face, a bar for a `side` row, and a
+  netherrack-red ring plus a compass letter for netherrack. The board sizes
+  itself to the window without shrinking cells past readable.
 - **Scanning in the window**: backend and thread pick, live candidate rate and
   time remaining, a stop button, and a match list you can copy or save. An
   output file works exactly like `--output`.

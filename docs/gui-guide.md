@@ -30,7 +30,7 @@ the window, or pasted straight in with Ctrl+V — see
 +-- settings ----------+-- filter editor ----------------------------+
 | Search               | [ Grid ] [ Rows ]                           |
 |   Algorithm          |                                             |
-|   Scan order         | Y layer  used: -1 0    Zoom   Auto-fit      |
+|   Scan order         | Y layer  used: -1 0   Zoom  Fit to window   |
 |   Directions         | Paint [Top / bottom (4-way)]  Rotation 0123 |
 |   Ranges X / Y / Z   |                                             |
 |   Error tolerance    |   north up, +X east right, +Z south down    |
@@ -94,30 +94,43 @@ coordinate the offsets are relative to — is the outlined cell at `0, 0`.
 
 ### Reading a cell
 
-A painted cell carries its value three ways, so it can be read precisely up
-close and as a pattern from a distance:
+A painted cell shows its rotation twice: as the **digit** that will be written
+to the config, and as a **colour**, matching the swatches on the Rotation
+buttons.
 
-- the **rotation digit** that will be written to the config;
-- a **colour** per rotation, matching the swatches on the Rotation buttons; and
-- a **mark** on the edge the texture is turned towards — up for `0`, right for
-  `1`, down for `2`, left for `3`.
+What the colour and digit cannot say is which *face* a row is, so that is what
+the remaining marks are for:
 
-The mark is what makes a filter comparable to a screenshot at a glance. A `side`
-row is a two-state mirror rather than a turn, so it gets a **bar** instead of a
-triangle — top for `0`, bottom for `1` — a different shape, to keep it from
-being read as a direction.
+- A `side` row gets a **bar** — at the top for `0`, at the bottom for `1`. A
+  `side` value is a two-state mirror rather than a turn, and the bar is what
+  separates the two at a glance. The bar appears whenever the block carries a
+  side row, including on a block that also has a top face — which is the usual
+  case for stone, where you can see both.
+- A netherrack row gets a **ring** around the cell, in netherrack's own red.
+  Netherrack uses a different model selector from ordinary blocks and can never
+  share a block with them, so the family is worth seeing without reading
+  anything. The red is taken darker than the block's texture so it keeps its
+  contrast against every rotation colour, including rotation 3, which is itself
+  a red.
+- A **badge** names which netherrack face a row is — a compass letter, `U` and
+  `D` for up and down. Only netherrack rows get one: a side row is marked by its
+  bar instead, so no `S` for "side" ever sits next to an `S` for "south".
 
-A corner badge names anything that is not a plain four-way face:
+That leaves each family with one cue of its own:
 
-| Badge | Meaning |
+| Cell | Family |
 | --- | --- |
-| *(none)* | Top or bottom face of an ordinary rotated block |
-| `S` | `side` — side face of a mirrored block |
-| `U` `D` `N` `So` `E` `W` | `netherrack-up`, `-down`, `-north`, `-south`, `-east`, `-west` |
+| Colour and digit only | Top or bottom face of an ordinary rotated block |
+| A bar | `side` — side face of a mirrored block |
+| A red ring and a letter | `netherrack-up`, `-down`, `-north`, `-south`, `-east`, `-west` |
 
-A block holding several faces shows every badge, and hovering lists the rows in
-full. Netherrack cells also carry an inner outline, because netherrack uses a
-different model selector and can never share a block with ordinary rows.
+A netherrack block holding several faces shows every letter, and hovering any
+cell lists its rows in full.
+
+When cells get small the **digit is dropped first and the badge grows into the
+middle**, because the colour already carries the rotation while nothing else
+carries the face. The automatic fit never shrinks cells past the point where
+digits still fit, so this only happens after zooming out by hand.
 
 Cells painted on *other* Y layers show through faintly in their own rotation
 colour, so a structure can be traced across layers; a painted cell that also has
@@ -136,11 +149,15 @@ squares.
 - **Drag** paints without cycling.
 - **Right-click** erases every row at that cell.
 - **Ctrl+wheel** zooms, keeping the cell under the pointer in place;
-  **middle-drag** pans. The Zoom slider does the same thing.
+  **middle-drag** pans. The Zoom slider does the same thing. Either turns *Fit
+  to window* off, since both are a request for a particular size.
 - **Y layer** switches layers; the numbers next to it are the layers already in
   use.
-- **Auto-fit** keeps three empty cells around the painted area, so there is
-  always somewhere to extend into. Turn it off to keep the view still.
+- **Fit to window** sizes the board to the space it has, keeping three empty
+  cells around the filter to extend into. It never shrinks cells past the point
+  where their digits stay readable — a filter too big for the window scrolls
+  instead of becoming illegible. Zooming by hand can go smaller than that, for
+  an overview of a large filter.
 
 One Minecraft block cannot use both model selectors, so painting a netherrack
 face over ordinary rows — or the reverse — clears the rows it cannot coexist

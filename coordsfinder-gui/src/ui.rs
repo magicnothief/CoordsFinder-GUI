@@ -18,20 +18,25 @@ impl eframe::App for CoordsFinderApp {
         self.take_pasted_config(ctx);
         self.handle_shortcuts(ctx);
 
+        // The surrounding panels are capped as a share of the window rather
+        // than at fixed sizes. In a small window, fixed panels leave almost
+        // nothing for the grid, which is the pane that actually needs the room.
+        let screen = ctx.screen_rect().size();
         egui::TopBottomPanel::top("menu").show(ctx, |ui| self.menu_bar(ui));
         egui::SidePanel::left("settings")
             .resizable(true)
             .default_width(300.0)
-            .width_range(260.0..=440.0)
+            .width_range(240.0..=(screen.x * 0.32).max(260.0))
             .show(ctx, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| self.settings_panel(ui));
             });
         egui::TopBottomPanel::bottom("results")
             .resizable(true)
-            .default_height(280.0)
+            .default_height((screen.y * 0.30).clamp(150.0, 280.0))
             // A bottom panel shrinks to its content, so an empty match list
-            // would collapse the pane; the floor keeps it a stable size.
-            .height_range(170.0..=560.0)
+            // would collapse the pane; the floor keeps it a stable size, and
+            // the ceiling keeps it from swallowing a short window.
+            .height_range(130.0..=(screen.y * 0.45).max(160.0))
             .show(ctx, |ui| self.results_panel(ui));
         egui::CentralPanel::default().show(ctx, |ui| self.filter_panel(ui));
         self.paste_modal(ctx);
@@ -547,13 +552,23 @@ impl CoordsFinderApp {
             }
             ui.separator();
             ui.label("Zoom");
-            ui.add(
-                egui::Slider::new(&mut self.view.cell, MIN_CELL..=MAX_CELL)
-                    .show_value(false)
-                    .trailing_fill(true),
-            );
-            ui.checkbox(&mut self.view.auto_fit, "Auto-fit")
-                .on_hover_text("Keep three empty cells around the painted area.");
+            if ui
+                .add(
+                    egui::Slider::new(&mut self.view.cell, MIN_CELL..=MAX_CELL)
+                        .show_value(false)
+                        .trailing_fill(true),
+                )
+                .changed()
+            {
+                // Setting a size by hand means the board should keep it.
+                self.view.auto_fit = false;
+            }
+            ui.checkbox(&mut self.view.auto_fit, "Fit to window")
+                .on_hover_text(
+                    "Size the board to the window, keeping three empty cells around the \
+                     filter to extend into. Cells never shrink below readable: a filter \
+                     too big for the window scrolls instead. Zooming turns this off.",
+                );
             ui.checkbox(&mut self.view.show_other_layers, "Ghost other layers");
         });
 

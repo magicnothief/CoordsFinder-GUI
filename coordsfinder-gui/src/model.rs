@@ -86,11 +86,15 @@ impl Brush {
         }
     }
 
-    /// One-or-two character badge drawn in the corner of a painted cell.
+    /// Single-character badge drawn on a painted cell.
+    ///
+    /// Only netherrack rows get one, and it is always a compass letter. A side
+    /// row is marked by its bar instead: giving it a letter too would put an
+    /// `S` for "side" next to an `S` for "south", which reads as ambiguous even
+    /// though the two can never share a block.
     pub fn badge(self) -> &'static str {
         match self {
-            Self::FourWay => "",
-            Self::Side => "S",
+            Self::FourWay | Self::Side => "",
             Self::Netherrack(face) => face_badge(face),
         }
     }
@@ -122,7 +126,7 @@ fn face_badge(face: Face) -> &'static str {
         Face::Up => "U",
         Face::Down => "D",
         Face::North => "N",
-        Face::South => "So",
+        Face::South => "S",
         Face::East => "E",
         Face::West => "W",
     }
@@ -475,6 +479,24 @@ mod tests {
             checked += 1;
         }
         assert!(checked >= 5, "expected several configs, checked {checked}");
+    }
+
+    #[test]
+    fn no_two_badges_share_a_letter() {
+        // A side row is marked by its bar rather than a letter, which is what
+        // keeps an "S" for side from sitting next to an "S" for south.
+        assert_eq!(Brush::Side.badge(), "");
+        assert_eq!(Brush::FourWay.badge(), "");
+        let letters: Vec<&str> = Brush::ALL
+            .iter()
+            .map(|brush| brush.badge())
+            .filter(|badge| !badge.is_empty())
+            .collect();
+        let mut unique = letters.clone();
+        unique.sort_unstable();
+        unique.dedup();
+        assert_eq!(letters.len(), 6, "every netherrack face needs a badge");
+        assert_eq!(unique.len(), letters.len(), "badges collide: {letters:?}");
     }
 
     #[test]
