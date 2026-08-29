@@ -10,6 +10,7 @@
 
 mod app;
 mod grid;
+mod history;
 mod model;
 mod runner;
 mod ui;

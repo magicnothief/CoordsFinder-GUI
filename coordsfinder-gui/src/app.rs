@@ -9,6 +9,7 @@ use coordsfinder::scan::make_plan;
 use coordsfinder::types::Match;
 
 use crate::grid::GridView;
+use crate::history::History;
 use crate::model::EditableConfig;
 use crate::runner::{self, BackendChoice, ScanHandle, ScanRequest, Update};
 
@@ -138,8 +139,12 @@ pub struct CoordsFinderApp {
     pub path: Option<PathBuf>,
     pub unsaved: bool,
 
-    pub validated: Option<EditableConfig>,
     pub summary: Result<Summary, String>,
+    /// Undo and redo for `config`.
+    pub history: History,
+    /// The document as of the last save or load, so undoing back to it clears
+    /// the unsaved marker instead of leaving it stuck on.
+    pub saved: EditableConfig,
 
     pub view: GridView,
     pub editor: Editor,
@@ -170,8 +175,9 @@ impl CoordsFinderApp {
             config: EditableConfig::default(),
             path: None,
             unsaved: false,
-            validated: None,
             summary: Err(String::new()),
+            history: History::new(&EditableConfig::default()),
+            saved: EditableConfig::default(),
             view: GridView::default(),
             editor: Editor::Grid,
             rows_text: String::new(),
@@ -215,13 +221,17 @@ impl CoordsFinderApp {
     pub fn revalidate(&mut self) {
         let path = self.source_path();
         self.summary = self.config.to_scan_config(&path).and_then(summarize);
-        self.validated = Some(self.config.clone());
     }
 
-    /// Validates only when the document actually changed since last frame.
-    pub fn revalidate_if_needed(&mut self) {
-        if self.validated.as_ref() != Some(&self.config) {
-            self.unsaved = true;
+    /// Records edits for undo and revalidates when the document changed.
+    ///
+    /// Runs once per frame, after the panels. A burst of edits is left open
+    /// while the pointer is held, so one gesture — a paint stroke, a drag on a
+    /// range — becomes one undo step instead of dozens.
+    pub fn sync_document(&mut self, ctx: &egui::Context) {
+        let settled = !ctx.input(|input| input.pointer.any_down());
+        if self.history.track(&self.config, settled) {
+            self.unsaved = self.config != self.saved;
             self.revalidate();
         }
     }
@@ -230,6 +240,8 @@ impl CoordsFinderApp {
         self.config = config;
         self.path = path;
         self.unsaved = false;
+        self.saved = self.config.clone();
+        self.history.reset(&self.config);
         self.rows_text = self.config.filter_text();
         self.rows_error = None;
         self.view.fit(&self.config);
@@ -238,6 +250,48 @@ impl CoordsFinderApp {
             self.view.layer = *layer;
         }
         self.revalidate();
+    }
+
+    /// Steps back one edit.
+    pub fn undo(&mut self) {
+        let mut config = std::mem::take(&mut self.config);
+        let stepped = self.history.undo(&mut config);
+        self.config = config;
+        self.after_history_step(stepped, "Undo", "Nothing to undo.");
+    }
+
+    /// Steps forward one undone edit.
+    pub fn redo(&mut self) {
+        let mut config = std::mem::take(&mut self.config);
+        let stepped = self.history.redo(&mut config);
+        self.config = config;
+        self.after_history_step(stepped, "Redo", "Nothing to redo.");
+    }
+
+    fn after_history_step(&mut self, stepped: bool, action: &str, empty: &str) {
+        if !stepped {
+            self.note(empty);
+            return;
+        }
+        // The rows editor holds its own copy of the filter text, so it has to
+        // be refreshed or it would still show the state that was just undone.
+        self.rows_text = self.config.filter_text();
+        self.rows_error = None;
+        // Undoing back to the last saved state is not an unsaved change.
+        self.unsaved = self.config != self.saved;
+        self.revalidate();
+        self.note(format!(
+            "{action}: {} filter row(s).",
+            self.config.filter.len()
+        ));
+    }
+
+    pub fn can_undo(&self) -> bool {
+        self.history.can_undo()
+    }
+
+    pub fn can_redo(&self) -> bool {
+        self.history.can_redo()
     }
 
     pub fn open(&mut self, path: &Path) {
@@ -284,6 +338,10 @@ impl CoordsFinderApp {
             Ok(()) => {
                 self.path = Some(path.to_owned());
                 self.unsaved = false;
+                // The new baseline for the unsaved marker: undoing back to
+                // here should read as saved again. History itself is kept, so
+                // a save does not cost the user their undo steps.
+                self.saved = self.config.clone();
                 self.note(format!("Saved {}.", path.display()));
             }
             Err(error) => self.note(format!("Could not save {}: {error}", path.display())),

@@ -123,6 +123,8 @@ What it adds over the CLI:
   family by its own cue: nothing for a plain face, a bar for a `side` row, and a
   netherrack-red ring plus a compass letter for netherrack. The board sizes
   itself to the window without shrinking cells past readable.
+- **Undo and redo** over the whole document — Ctrl+Z and Ctrl+Y — where one
+  gesture is one step, so a stroke across twenty cells undoes in one go.
 - **Scanning in the window**: backend and thread pick, live candidate rate and
   time remaining, a stop button, and a match list you can copy or save. An
   output file works exactly like `--output`.

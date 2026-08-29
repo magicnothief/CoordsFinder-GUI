@@ -26,7 +26,7 @@ the window, or pasted straight in with Ctrl+V — see
 
 ```text
 +-- menu ------------------------------------------------------------+
-| File   Filter        example.conf  • unsaved                       |
+| File  Edit  Filter   example.conf  • unsaved                       |
 +-- settings ----------+-- filter editor ----------------------------+
 | Search               | [ Grid ] [ Rows ]                           |
 |   Algorithm          |                                             |
@@ -148,6 +148,8 @@ squares.
   `0 → 1 → 2 → 3`.
 - **Drag** paints without cycling.
 - **Right-click** erases every row at that cell.
+- **Ctrl+Z** undoes, **Ctrl+Y** redoes; a whole stroke undoes at once. See
+  [Undo and redo](#undo-and-redo).
 - **Ctrl+wheel** zooms, keeping the cell under the pointer in place;
   **middle-drag** pans. The Zoom slider does the same thing. Either turns *Fit
   to window* off, since both are a request for a particular size.
@@ -158,6 +160,31 @@ squares.
   where their digits stay readable — a filter too big for the window scrolls
   instead of becoming illegible. Zooming by hand can go smaller than that, for
   an overview of a large filter.
+
+## Undo and redo
+
+**Ctrl+Z** steps back, **Ctrl+Y** or **Ctrl+Shift+Z** steps forward, and both
+are in the **Edit** menu, greyed out when there is nothing to step to.
+
+Undo covers the whole document — filter rows and settings alike — so undoing
+after dragging a range value puts the range back just as it puts a painted cell
+back.
+
+**One gesture is one step.** A stroke painting twenty cells with the button held
+undoes as a single action, as does a drag that took a range value through fifty
+intermediate numbers. A burst of edits stays open while the pointer is down and
+closes when it is released, so separate clicks stay separate steps.
+
+Two things it deliberately does not do:
+
+- **Loading a document clears the history.** Undoing across an Open, a paste, or
+  a New into the previous document's edits would be more surprising than useful.
+- **It does not reach into text boxes.** While the rows editor or the paste box
+  has focus, Ctrl+Z is that box's own undo, which is what you want while typing.
+  Click away from it and Ctrl+Z is the document's again.
+
+Undoing back to the state you last saved clears the *unsaved* marker in the
+title, and saving does not cost you your history.
 
 One Minecraft block cannot use both model selectors, so painting a netherrack
 face over ordinary rows — or the reverse — clears the rows it cannot coexist
@@ -222,6 +249,7 @@ on a detached thread.
 | `coordsfinder-gui/src/ui.rs` | Panels and widgets |
 | `coordsfinder-gui/src/grid.rs` | The click-to-paint grid |
 | `coordsfinder-gui/src/model.rs` | Editable config, `.conf` writing, filter editing |
+| `coordsfinder-gui/src/history.rs` | Undo and redo snapshots, and edit-burst grouping |
 | `coordsfinder-gui/src/runner.rs` | Worker thread, progress channel, cancellation |
 
 The GUI holds an `EditableConfig` rather than a `ScanConfig`, because a document

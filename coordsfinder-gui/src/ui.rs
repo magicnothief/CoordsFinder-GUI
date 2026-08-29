@@ -41,9 +41,9 @@ impl eframe::App for CoordsFinderApp {
         egui::CentralPanel::default().show(ctx, |ui| self.filter_panel(ui));
         self.paste_modal(ctx);
 
-        // Validation is cheap but not free, so it runs once per changed frame
-        // rather than inside every widget callback.
-        self.revalidate_if_needed();
+        // Edit tracking and validation both run once per frame, after the
+        // panels, rather than inside every widget callback.
+        self.sync_document(ctx);
 
         if self.scanning() {
             // Keep the rate and ETA moving even when no update has arrived.
@@ -77,6 +77,32 @@ impl CoordsFinderApp {
         }
         if paste {
             self.open_paste_dialog(String::new());
+        }
+        self.handle_history_shortcuts(ctx);
+    }
+
+    /// Ctrl+Z and Ctrl+Y / Ctrl+Shift+Z, unless a text box wants them.
+    ///
+    /// A focused `TextEdit` has its own undo stack, and taking the key from it
+    /// would leave typing in the rows editor or the paste box unable to undo.
+    fn handle_history_shortcuts(&mut self, ctx: &egui::Context) {
+        if ctx.memory(|memory| memory.focused()).is_some() {
+            return;
+        }
+        let (undo, redo) = ctx.input_mut(|input| {
+            let undo = input.consume_key(egui::Modifiers::COMMAND, egui::Key::Z);
+            let redo = input.consume_key(egui::Modifiers::COMMAND, egui::Key::Y)
+                || input.consume_key(
+                    egui::Modifiers::COMMAND | egui::Modifiers::SHIFT,
+                    egui::Key::Z,
+                );
+            (undo, redo)
+        });
+        if undo {
+            self.undo();
+        }
+        if redo {
+            self.redo();
         }
     }
 
@@ -255,6 +281,28 @@ impl CoordsFinderApp {
                 ui.separator();
                 if ui.button("Quit").clicked() {
                     ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+                }
+            });
+            ui.menu_button("Edit", |ui| {
+                if ui
+                    .add_enabled(
+                        self.can_undo(),
+                        egui::Button::new("Undo").shortcut_text("Ctrl+Z"),
+                    )
+                    .clicked()
+                {
+                    self.undo();
+                    ui.close();
+                }
+                if ui
+                    .add_enabled(
+                        self.can_redo(),
+                        egui::Button::new("Redo").shortcut_text("Ctrl+Y"),
+                    )
+                    .clicked()
+                {
+                    self.redo();
+                    ui.close();
                 }
             });
             ui.menu_button("Filter", |ui| {
