@@ -107,17 +107,21 @@ cargo run --release -p coordsfinder-gui -- ./example.conf
 
 The window opens, edits, and saves ordinary `.conf` files, so it interoperates
 with the command-line tool and with WebCoordsFinder exports in both directions.
-A config can also be dropped onto the window.
 
 What it adds over the CLI:
 
 - **Every setting as a control**, with the config re-validated after each edit
   through the same parser the CLI uses. The summary reports block constraints,
   candidate count, and work items before you commit to a scan.
+- **Config in by file, drop, or paste.** WebCoordsFinder hands out its config on
+  the clipboard as well as as a file, so Ctrl+V anywhere in the window opens it
+  — validated and summarised before you commit to loading it. A `.conf` can also
+  be dropped onto the window, and File → Copy config sends one back out.
 - **A filter grid you can paint.** Click cells to set texture rotations on one Y
   layer at a time, with `side` and the six `netherrack-<face>` markers available
-  as brushes and shown as corner badges. This replaces counting offsets by hand,
-  which is the tedious part of writing a config by hand.
+  as brushes. Each cell shows its rotation as a digit, a colour, and a mark on
+  the edge the texture is turned towards, so a filter can be compared against a
+  screenshot at a glance instead of by counting offsets.
 - **Scanning in the window**: backend and thread pick, live candidate rate and
   time remaining, a stop button, and a match list you can copy or save. An
   output file works exactly like `--output`.

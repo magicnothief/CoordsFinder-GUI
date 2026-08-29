@@ -7,7 +7,7 @@ use egui::{Color32, RichText};
 use coordsfinder::config::ScanOrder;
 
 use crate::app::{CoordsFinderApp, Editor, Results, duration, thousands};
-use crate::grid::{self, rotation_color};
+use crate::grid::{self, MAX_CELL, MIN_CELL, rotation_color};
 use crate::model::{ALGORITHMS, Brush, DIRECTIONS, OFFSET_MAX, OFFSET_MIN};
 use crate::runner::BackendChoice;
 
@@ -15,6 +15,7 @@ impl eframe::App for CoordsFinderApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.pump();
         self.take_dropped_file(ctx);
+        self.take_pasted_config(ctx);
         self.handle_shortcuts(ctx);
 
         egui::TopBottomPanel::top("menu").show(ctx, |ui| self.menu_bar(ui));
@@ -33,6 +34,7 @@ impl eframe::App for CoordsFinderApp {
             .height_range(170.0..=560.0)
             .show(ctx, |ui| self.results_panel(ui));
         egui::CentralPanel::default().show(ctx, |ui| self.filter_panel(ui));
+        self.paste_modal(ctx);
 
         // Validation is cheap but not free, so it runs once per changed frame
         // rather than inside every widget callback.
@@ -52,10 +54,14 @@ impl eframe::App for CoordsFinderApp {
 
 impl CoordsFinderApp {
     fn handle_shortcuts(&mut self, ctx: &egui::Context) {
-        let (open, save) = ctx.input_mut(|input| {
+        let (open, save, paste) = ctx.input_mut(|input| {
             (
                 input.consume_key(egui::Modifiers::COMMAND, egui::Key::O),
                 input.consume_key(egui::Modifiers::COMMAND, egui::Key::S),
+                input.consume_key(
+                    egui::Modifiers::COMMAND | egui::Modifiers::SHIFT,
+                    egui::Key::V,
+                ),
             )
         });
         if open {
@@ -63,6 +69,144 @@ impl CoordsFinderApp {
         }
         if save {
             self.save_current();
+        }
+        if paste {
+            self.open_paste_dialog(String::new());
+        }
+    }
+
+    /// Treats a paste that no text field claimed as "load this config".
+    ///
+    /// WebCoordsFinder hands out a config on the clipboard as well as a file,
+    /// so Ctrl+V in the window is the shortest route from that button to a
+    /// loaded search. The event is read but never consumed, and only when
+    /// nothing holds keyboard focus, so pasting into the rows editor or into
+    /// the dialog's own text box still behaves normally.
+    fn take_pasted_config(&mut self, ctx: &egui::Context) {
+        if ctx.memory(|memory| memory.focused()).is_some() {
+            return;
+        }
+        let pasted = ctx.input(|input| {
+            input.events.iter().find_map(|event| match event {
+                egui::Event::Paste(text) => Some(text.clone()),
+                _ => None,
+            })
+        });
+        if let Some(text) = pasted {
+            self.open_paste_dialog(text);
+        }
+    }
+
+    /// The paste-a-config dialog: validates as you paste, loads on confirm.
+    fn paste_modal(&mut self, ctx: &egui::Context) {
+        let Some(mut dialog) = self.paste.take() else {
+            return;
+        };
+        dialog.refresh();
+        let mut load = false;
+        let mut keep_open = true;
+
+        let modal = egui::Modal::new(egui::Id::new("paste-config")).show(ctx, |ui| {
+            ui.set_width(560.0);
+            ui.heading("Paste a config");
+            ui.label(
+                RichText::new(
+                    "Paste the config WebCoordsFinder copied, or the text of a .conf file.",
+                )
+                .weak(),
+            );
+            ui.add_space(6.0);
+
+            let editor = egui::ScrollArea::vertical()
+                .max_height(320.0)
+                .show(ui, |ui| {
+                    ui.add(
+                        egui::TextEdit::multiline(&mut dialog.text)
+                            .code_editor()
+                            .desired_width(f32::INFINITY)
+                            .desired_rows(14)
+                            .hint_text("algorithm = Vanilla-3 …"),
+                    )
+                })
+                .inner;
+            if dialog.focus {
+                // Focus the box so the paste keystroke lands here when the
+                // dialog was opened from the menu rather than by pasting.
+                editor.request_focus();
+                dialog.focus = false;
+            }
+
+            ui.add_space(6.0);
+            match &dialog.parsed {
+                Ok(config) => {
+                    let directions = config
+                        .directions
+                        .iter()
+                        .map(|direction| format!("{direction}°"))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    ui.colored_label(
+                        Color32::from_rgb(0x4F, 0xB0, 0x8A),
+                        format!(
+                            "Valid: {}, {} filter row(s), direction(s) {directions}.",
+                            config.algorithm,
+                            config.filter.len()
+                        ),
+                    );
+                    ui.label(
+                        RichText::new(format!(
+                            "X [{}, {})   Y [{}, {})   Z [{}, {})   tolerance {}",
+                            config.x_range.start,
+                            config.x_range.end,
+                            config.y_range.start,
+                            config.y_range.end,
+                            config.z_range.start,
+                            config.z_range.end,
+                            config.error_tolerance
+                        ))
+                        .weak()
+                        .small(),
+                    );
+                }
+                Err(error) => {
+                    ui.colored_label(Color32::from_rgb(0xD8, 0x5A, 0x5A), error);
+                }
+            }
+
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                if ui.button("Cancel").clicked() {
+                    keep_open = false;
+                }
+                if ui
+                    .add_enabled(
+                        dialog.parsed.is_ok(),
+                        egui::Button::new("Load config").fill(ui.visuals().selection.bg_fill),
+                    )
+                    .clicked()
+                {
+                    load = true;
+                }
+                if self.unsaved {
+                    ui.label(
+                        RichText::new("Replaces the unsaved config in the window.")
+                            .weak()
+                            .small(),
+                    );
+                }
+            });
+        });
+
+        if modal.should_close() {
+            keep_open = false;
+        }
+        if load {
+            let text = std::mem::take(&mut dialog.text);
+            self.load_config_text(&text);
+            keep_open = false;
+        }
+        if keep_open {
+            self.paste = Some(dialog);
         }
     }
 
@@ -91,6 +235,16 @@ impl CoordsFinderApp {
                 }
                 if ui.button("Save as…").clicked() {
                     self.save_as_dialog();
+                    ui.close();
+                }
+                ui.separator();
+                if ui.button("Paste config…").clicked() {
+                    self.open_paste_dialog(String::new());
+                    ui.close();
+                }
+                if ui.button("Copy config").clicked() {
+                    ui.ctx().copy_text(self.config.to_conf_text());
+                    self.note("Config copied to the clipboard.");
                     ui.close();
                 }
                 ui.separator();
@@ -394,7 +548,7 @@ impl CoordsFinderApp {
             ui.separator();
             ui.label("Zoom");
             ui.add(
-                egui::Slider::new(&mut self.view.cell, 12.0..=56.0)
+                egui::Slider::new(&mut self.view.cell, MIN_CELL..=MAX_CELL)
                     .show_value(false)
                     .trailing_fill(true),
             );
@@ -438,15 +592,20 @@ impl CoordsFinderApp {
             }
             ui.separator();
             ui.label(
-                RichText::new("left-click paints or cycles · drag paints · right-click erases")
-                    .weak()
-                    .small(),
+                RichText::new(
+                    "left-click paints or cycles · drag paints · right-click erases · \
+                     ctrl+wheel zooms · middle-drag pans",
+                )
+                .weak()
+                .small(),
             );
         });
 
         ui.horizontal(|ui| {
+            // Spelled out rather than drawn with arrows: egui's default font
+            // has no glyphs for the Arrows block, so they render as tofu.
             ui.label(
-                RichText::new("north ↑   +X east →   +Z south ↓")
+                RichText::new("north = up   ·   +X = right (east)   ·   +Z = down (south)")
                     .weak()
                     .small(),
             );

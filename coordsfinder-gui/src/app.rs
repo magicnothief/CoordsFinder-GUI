@@ -17,6 +17,8 @@ const LOG_LIMIT: usize = 500;
 /// Placeholder path used when the document has not been saved yet, so parser
 /// error messages still read sensibly.
 const UNSAVED_NAME: &str = "(unsaved).conf";
+/// Placeholder path used while parsing pasted text, for the same reason.
+const PASTED_NAME: &str = "(pasted config)";
 
 /// Which editor is shown in the central panel.
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -41,6 +43,46 @@ pub struct Summary {
     pub candidates: u64,
     pub saturated: bool,
     pub warning: Option<String>,
+}
+
+/// The paste-a-config dialog.
+///
+/// WebCoordsFinder offers a config on the clipboard as well as a file, so the
+/// text is validated as it is pasted and the load is only offered once it
+/// parses. `parsed` is recomputed only when the text changes.
+pub struct PasteDialog {
+    pub text: String,
+    pub parsed: Result<ScanConfig, String>,
+    /// The text `parsed` was produced from; `None` before the first check.
+    checked: Option<String>,
+    /// Cleared after the first frame, once the text area has been focused.
+    pub focus: bool,
+}
+
+impl PasteDialog {
+    pub fn new(text: String) -> Self {
+        let mut dialog = Self {
+            text,
+            parsed: Err(String::new()),
+            checked: None,
+            focus: true,
+        };
+        dialog.refresh();
+        dialog
+    }
+
+    /// Re-parses the pasted text if it changed since the last check.
+    pub fn refresh(&mut self) {
+        if self.checked.as_deref() == Some(self.text.as_str()) {
+            return;
+        }
+        self.checked = Some(self.text.clone());
+        self.parsed = if self.text.trim().is_empty() {
+            Err("Paste a config here, or press Ctrl+V.".to_owned())
+        } else {
+            coordsfinder::config::parse(&self.text, PASTED_NAME)
+        };
+    }
 }
 
 /// Live state of a scan, kept separately so it survives across frames.
@@ -103,6 +145,7 @@ pub struct CoordsFinderApp {
     pub editor: Editor,
     pub rows_text: String,
     pub rows_error: Option<String>,
+    pub paste: Option<PasteDialog>,
 
     pub backend: BackendChoice,
     pub threads: usize,
@@ -133,6 +176,7 @@ impl CoordsFinderApp {
             editor: Editor::Grid,
             rows_text: String::new(),
             rows_error: None,
+            paste: None,
             backend: BackendChoice::default(),
             threads: std::thread::available_parallelism().map_or(1, |count| count.get()),
             output: None,
@@ -209,6 +253,30 @@ impl CoordsFinderApp {
             }
             Err(error) => self.note(format!("Could not open: {error}")),
         }
+    }
+
+    /// Loads config text that did not come from a file.
+    ///
+    /// The document keeps no path, so the next save asks where to put it rather
+    /// than silently overwriting whatever was open before.
+    pub fn load_config_text(&mut self, text: &str) {
+        match coordsfinder::config::parse(text, PASTED_NAME) {
+            Ok(config) => {
+                let editable = EditableConfig::from_scan_config(&config);
+                self.reset_document(editable, None);
+                self.unsaved = true;
+                self.note(format!(
+                    "Loaded a pasted config ({} filter rows). Save it to keep it.",
+                    self.config.filter.len()
+                ));
+            }
+            Err(error) => self.note(format!("Could not load the pasted config: {error}")),
+        }
+    }
+
+    /// Opens the paste dialog, pre-filled with `text`.
+    pub fn open_paste_dialog(&mut self, text: String) {
+        self.paste = Some(PasteDialog::new(text));
     }
 
     pub fn save(&mut self, path: &Path) {

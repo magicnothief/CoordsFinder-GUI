@@ -19,7 +19,8 @@ cargo run --release -p coordsfinder-gui -- ./example.conf
 
 The optional argument is a config to open at start, so the executable also works
 as the "open with" target for `.conf` files. A config can also be dropped onto
-the window.
+the window, or pasted straight in with Ctrl+V — see
+[Pasting a config](#pasting-a-config).
 
 ## Window layout
 
@@ -91,9 +92,22 @@ The grid shows one Y layer in Minecraft's top-down map orientation: `+X` runs
 right (east), `+Z` runs down (south), so north is up. The origin — the candidate
 coordinate the offsets are relative to — is the outlined cell at `0, 0`.
 
-Each painted cell shows the rotation digit that will be written to the config,
-coloured by rotation, with a corner badge for anything that is not a plain
-four-way face:
+### Reading a cell
+
+A painted cell carries its value three ways, so it can be read precisely up
+close and as a pattern from a distance:
+
+- the **rotation digit** that will be written to the config;
+- a **colour** per rotation, matching the swatches on the Rotation buttons; and
+- a **mark** on the edge the texture is turned towards — up for `0`, right for
+  `1`, down for `2`, left for `3`.
+
+The mark is what makes a filter comparable to a screenshot at a glance. A `side`
+row is a two-state mirror rather than a turn, so it gets a **bar** instead of a
+triangle — top for `0`, bottom for `1` — a different shape, to keep it from
+being read as a direction.
+
+A corner badge names anything that is not a plain four-way face:
 
 | Badge | Meaning |
 | --- | --- |
@@ -101,17 +115,28 @@ four-way face:
 | `S` | `side` — side face of a mirrored block |
 | `U` `D` `N` `So` `E` `W` | `netherrack-up`, `-down`, `-north`, `-south`, `-east`, `-west` |
 
-`+n` in the lower-left corner means the block carries more rows than the one
-shown; hover it to see them all. A faint dot marks a cell that is empty on this
-layer but painted on another.
+A block holding several faces shows every badge, and hovering lists the rows in
+full. Netherrack cells also carry an inner outline, because netherrack uses a
+different model selector and can never share a block with ordinary rows.
 
-Editing:
+Cells painted on *other* Y layers show through faintly in their own rotation
+colour, so a structure can be traced across layers; a painted cell that also has
+rows elsewhere gets a dot in its top-left corner.
+
+The board is ruled with a heavier line every five cells and a brighter one on
+the `x = 0` and `z = 0` axes, and hovering lights up a band down the row and
+column with their coordinates, so an offset can be read off without counting
+squares.
+
+### Editing
 
 - **Left-click** paints the selected brush and rotation. Clicking a cell that
   already holds exactly that advances the rotation, so repeated clicks cycle
   `0 → 1 → 2 → 3`.
 - **Drag** paints without cycling.
 - **Right-click** erases every row at that cell.
+- **Ctrl+wheel** zooms, keeping the cell under the pointer in place;
+  **middle-drag** pans. The Zoom slider does the same thing.
 - **Y layer** switches layers; the numbers next to it are the layers already in
   use.
 - **Auto-fit** keeps three empty cells around the painted area, so there is
@@ -121,6 +146,27 @@ One Minecraft block cannot use both model selectors, so painting a netherrack
 face over ordinary rows — or the reverse — clears the rows it cannot coexist
 with. This is the same rule the config parser enforces; the editor applies it up
 front rather than letting it surface as a validation error.
+
+## Pasting a config
+
+WebCoordsFinder offers its config on the clipboard as well as as a file, so a
+config never has to be saved to disk just to get it in here.
+
+**Press Ctrl+V anywhere in the window** — or use **File → Paste config…**
+(Ctrl+Shift+V) and paste into the box. Either way the dialog validates the text
+as it arrives and reports what it found: algorithm, filter row count,
+directions, ranges, and tolerance. **Load config** stays disabled until the text
+parses, and shows the parser's own error until then.
+
+A pasted config has no file behind it, so the window keeps it as
+`untitled.conf` and marks it unsaved. Save it if you want to keep it.
+
+The reverse trip is **File → Copy config**, which puts the whole document on the
+clipboard.
+
+A plain Ctrl+V is only treated as a config when no text box has focus, so
+pasting into the rows editor or into the paste dialog itself still works
+normally.
 
 ## The rows editor
 
