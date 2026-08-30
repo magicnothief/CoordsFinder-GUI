@@ -166,6 +166,9 @@ pub struct EditableConfig {
 
 impl Default for EditableConfig {
     fn default() -> Self {
+        // A new document starts on the engine's own tile sizes rather than a
+        // copy of them, so an upstream change to the defaults arrives here too.
+        let engine = ScanConfig::default();
         Self {
             algorithm: TextureAlgorithm::Vanilla3,
             scan_order: ScanOrder::Spiral,
@@ -180,11 +183,8 @@ impl Default for EditableConfig {
                 end: 5_000,
             },
             error_tolerance: 0,
-            cpu_tile_size: TileSize { x: 1024, z: 1024 },
-            gpu_tile_size: TileSize {
-                x: 16_384,
-                z: 16_384,
-            },
+            cpu_tile_size: engine.cpu_tile_size,
+            gpu_tile_size: engine.gpu_tile_size,
             verbose: false,
             filter: Vec::new(),
         }

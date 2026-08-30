@@ -60,7 +60,7 @@ zRange = (-5000, 5000)
 errorTolerance = 0                # Maximum number of block errors accepted
 
 cpuTileSize = (1024, 1024)
-gpuTileSize = (16384, 16384)
+gpuTileSize = (8192, 8192)
 verbose = false
 
 [filter]
@@ -128,11 +128,13 @@ The default tile sizes and verbosity are reasonable and typically do not need to
 
 ```ini
 cpuTileSize = (1024, 1024)
-gpuTileSize = (16384, 16384)
+gpuTileSize = (8192, 8192)
 verbose = false
 ```
 
-The selected backend uses its matching tile size, which determines the X/Z area scanned per work item. Reduce `gpuTileSize` if a tile could produce more than 262,144 matches or exceeds an adapter's dispatch limits. The legacy `cudaTileSize` name is accepted as an alias for `gpuTileSize`, so existing configs continue to work. Verbose mode prints progress for every work item.
+The selected backend uses its matching tile size, which determines the X/Z area scanned per work item. The legacy `cudaTileSize` name is accepted as an alias for `gpuTileSize`, so existing configs continue to work. Verbose mode prints progress for every work item.
+
+In the GUI these are under **Advanced** in the Search panel. If a scan dies partway through, see [the driver-reset question below](#why-did-windows-say-that-the-display-driver-stopped-responding-or-why-did-wgpu-panic-in-buffermap_async).
 
 ### Filters
 
@@ -226,6 +228,12 @@ In short: Start with WebCoordsFinder, and either use the built-in scanner or use
 ### I don't have a compatible GPU but I want to scan faster! What should I do?
 
 Use the free [Google Colab notebook](https://colab.research.google.com/drive/17qih1n6VpQx_77C2spIF-JOJp17y9Jt6?usp=sharing)!
+
+### Why did Windows say that the display driver stopped responding, or why did wgpu panic in `Buffer::map_async`?
+
+Windows can reset the graphics driver when one GPU work item runs for too long; this is called Timeout Detection and Recovery (TDR). After a reset, wgpu may instead panic with a validation error in `Buffer::map_async`, such as `Buffer with '' label is invalid`. This is a symptom of the GPU timeout. Reduce `gpuTileSize`, especially when using a nonzero `errorTolerance`, so each work item finishes sooner. If the scan is stable and work items finish quickly, increase `gpuTileSize` to reduce per-tile overhead.
+
+In the GUI a panicking backend ends the scan and the log pane says the scan thread stopped unexpectedly, since a release build has no console for the panic itself.
 
 ### How is CoordsFinder so fast?
 

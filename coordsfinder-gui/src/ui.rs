@@ -439,8 +439,13 @@ impl CoordsFinderApp {
                                 .range(1..=i32::MAX),
                         );
                         ui.end_row();
-                        ui.label("GPU tile")
-                            .on_hover_text("Lower this if a tile could hold more than 262,144 matches.");
+                        ui.label("GPU tile").on_hover_text(
+                            concat!(
+                            "Lower this if the display driver resets mid-scan, which ",
+                            "is likelier with a nonzero error tolerance. Raise it if ",
+                            "scans are stable, to cut per-tile overhead.",
+                        ),
+                        );
                         ui.add(
                             egui::DragValue::new(&mut self.config.gpu_tile_size.x)
                                 .speed(64.0)

@@ -169,7 +169,10 @@ with two different histories:
 | `coordsfinder-gui` | `1.0.0` | The fork's own release line. |
 
 So `coordsfinder --version` reports a number that means something to upstream,
-rather than one this fork invented. The GUI puts both in its window title —
+rather than one this fork invented. Between upstream releases the engine can
+also carry commits upstream has not tagged yet; `git log v1.2.0..upstream/main`
+shows which. The number moves only when upstream tags a release, so a merge of
+untagged upstream work does not change it. The GUI puts both in its window title —
 `CoordsFinder GUI 1.0.0 (engine 1.2.0)` — so a bug report can name both.
 
 Fork releases are tagged **`gui-vX.Y.Z`**, deliberately outside upstream's

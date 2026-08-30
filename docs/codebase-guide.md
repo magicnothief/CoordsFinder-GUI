@@ -357,7 +357,8 @@ The shader uses `16 x 1 x 16` workgroups. One shader invocation handles one X/Z
 coordinate and up to 32 Y coordinates.
 
 The result buffer holds 262,144 matches. If one tile finds more than that, the
-program asks the user to lower `gpuTileSize`.
+scan stops and asks for more filters, since a filter that loose has too many
+answers to be worth reporting.
 
 The texture random code exists in both `texture.rs` and `search.wgsl`. Changes
 to one copy must also be made in the other copy.

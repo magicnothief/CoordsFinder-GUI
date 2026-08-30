@@ -142,9 +142,20 @@ backend gives the same answers, just slower.
 
 ### A tile found too many matches
 
-The GPU backend reports this and asks you to lower `gpuTileSize`, under
-**Advanced**. It means one tile produced more than 262,144 matches, which
-normally also means the filter is far too loose.
+The GPU backend reports this when one tile produced more than 262,144 matches
+and asks for more filters. Shrinking the GPU tile would get past the error, but
+not usefully — a filter that loose has hundreds of thousands of answers. Mark
+more blocks instead.
+
+### The scan stopped on its own
+
+If the log says the scan thread stopped unexpectedly, the GPU backend was very
+likely taken down by a display driver reset: Windows resets the driver when a
+single work item runs too long. Lower **GPU tile** under **Advanced** so each
+item finishes sooner — a nonzero error tolerance makes this much likelier — or
+run the scan on the CPU backend. The
+[config reference](./config-reference.md#why-did-windows-say-that-the-display-driver-stopped-responding-or-why-did-wgpu-panic-in-buffermap_async)
+has the details.
 
 ## Building a filter by hand
 

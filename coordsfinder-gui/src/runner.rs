@@ -92,6 +92,11 @@ pub struct ScanHandle {
     cancel: Arc<AtomicBool>,
     worker: Option<JoinHandle<()>>,
     finished: bool,
+    /// When the handle was created, for reporting a worker that unwound.
+    started: Instant,
+    /// Latest match count seen, so a synthesized `Finished` does not report
+    /// zero for a scan that had already found something.
+    last_matches: u64,
 }
 
 impl ScanHandle {
@@ -116,13 +121,36 @@ impl ScanHandle {
         loop {
             match self.updates.try_recv() {
                 Ok(update) => {
-                    if matches!(update, Update::Finished { .. }) {
-                        self.finished = true;
+                    match update {
+                        Update::Finished { .. } => self.finished = true,
+                        Update::Progress { matches, .. } => self.last_matches = matches,
+                        _ => {}
                     }
                     drained.push(update);
                 }
                 Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Disconnected) => {
+                    // The worker always sends `Finished` before it returns, so a
+                    // closed channel without one means it unwound instead. wgpu
+                    // panics this way after a display driver reset, and a release
+                    // build has no console to print the panic to, so the scan
+                    // would otherwise just stop with nothing said.
+                    if !self.finished {
+                        drained.push(Update::Finished {
+                            elapsed: self.started.elapsed().as_secs_f64(),
+                            matches: self.last_matches,
+                            cancelled: false,
+                            error: Some(
+                                concat!(
+                                    "the scan thread stopped unexpectedly. On the GPU ",
+                                    "backend this is usually a display driver reset ",
+                                    "(Windows TDR); lower the GPU tile size under ",
+                                    "Advanced and try again.",
+                                )
+                                .to_owned(),
+                            ),
+                        });
+                    }
                     self.finished = true;
                     break;
                 }
@@ -222,6 +250,8 @@ pub fn start(request: ScanRequest, repaint: impl Fn() + Send + Clone + 'static) 
         cancel,
         worker: Some(worker),
         finished: false,
+        started: Instant::now(),
+        last_matches: 0,
     }
 }
 
@@ -350,4 +380,78 @@ fn run(
 enum Selected {
     Cpu(CpuScanner),
     Gpu(Box<GpuScanner>),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A handle around a bare channel, standing in for a running scan.
+    fn handle(updates: Receiver<Update>) -> ScanHandle {
+        ScanHandle {
+            updates,
+            cancel: Arc::new(AtomicBool::new(false)),
+            worker: None,
+            finished: false,
+            started: Instant::now(),
+            last_matches: 0,
+        }
+    }
+
+    #[test]
+    fn a_worker_that_unwinds_is_reported_as_a_failure() {
+        let (sender, receiver) = channel();
+        let mut scan = handle(receiver);
+        sender
+            .send(Update::Progress {
+                candidates: 100,
+                completed: 1,
+                matches: 3,
+            })
+            .unwrap();
+        // No `Finished`: the worker panicked, as wgpu does after a driver reset.
+        drop(sender);
+
+        let drained = scan.poll();
+        assert!(scan.finished());
+        let Some(Update::Finished {
+            matches,
+            cancelled,
+            error,
+            ..
+        }) = drained.last()
+        else {
+            panic!("expected a synthesized Finished, got {drained:?}");
+        };
+        assert_eq!(
+            *matches, 3,
+            "the last known count should survive the failure"
+        );
+        assert!(!*cancelled);
+        assert!(
+            error
+                .as_deref()
+                .is_some_and(|error| error.contains("stopped unexpectedly"))
+        );
+    }
+
+    #[test]
+    fn a_clean_finish_is_not_reported_twice() {
+        let (sender, receiver) = channel();
+        let mut scan = handle(receiver);
+        sender
+            .send(Update::Finished {
+                elapsed: 1.0,
+                matches: 2,
+                cancelled: false,
+                error: None,
+            })
+            .unwrap();
+        drop(sender);
+
+        let drained = scan.poll();
+        assert_eq!(drained.len(), 1, "the worker's own Finished, and only it");
+        assert!(scan.finished());
+        assert!(scan.poll().is_empty());
+    }
 }
